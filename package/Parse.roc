@@ -88,7 +88,7 @@ expect
     res = atomic_grapheme("🔥")
     res == Ok(("🔥", ""))
 
-## Parse a digit
+## Parse a digit (converts from ASCII value to integer)
 digit : Parser U8 [NotADigit]
 digit = |str| 
     parser = char |> filter(|c| is_digit(c)) |> map(|c| Ok(c - '0'))
@@ -99,7 +99,7 @@ expect digit("1") == Ok((1, ""))
 ## Parse an integer
 integer : Parser U64 [NotAnInteger]
 integer = |str|
-    parser = one_or_more(digit |> map(|c| Ok(c + '0'))) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
+    parser = one_or_more(char |> filter(|c| is_digit(c))) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
     parser(str) |> Result.map_err(|_| NotAnInteger)
 
 expect integer("1") == Ok((1, ""))
