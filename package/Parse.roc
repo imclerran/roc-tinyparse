@@ -267,5 +267,6 @@ expect
 
 ## Finalization ---------------------------------------------------------------
 
+## Finalize a parser result
 finalize : Result (a, Str) err -> Result a err
 finalize = |result| result |> Result.map_ok(.0)
