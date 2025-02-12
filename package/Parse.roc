@@ -32,14 +32,13 @@ import Utils exposing [is_digit]
 
 ## TYPES ----------------------------------------------------------------------
 
+## A takes a Str and returns a Result containing a tuple of the matched value and the remaining Str after the match, or an error if the match was not found at the beginning of the Str.
+## > Note that the matched value which is returned does not need to be a Str, but can be transformed in any way.
 ## ```
 ## Parser a err : Str -> Result (a, Str) err
 ## ```
 Parser a err : Str -> Result (a, Str) err
 
-## ```
-## Maybe a : [Some a, None]
-## ```
 Maybe a : [Some a, None]
 
 ## PARSER COMBINATORS ---------------------------------------------------------
