@@ -1,6 +1,6 @@
 module [float, integer, csv_string]
 
-import Parser exposing [Parser, number, char, maybe, string, rhs, lhs, both, map, one_or_more, excluding, one_of]
+import Parse exposing [Parser, number, char, maybe, string, rhs, lhs, both, map, one_or_more, excluding, one_of]
 import Utils exposing [int_pair_to_float, approx_eq]
 
 float : Parser F64 [InvalidFloat]

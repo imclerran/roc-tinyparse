@@ -6,7 +6,7 @@ app [main!] {
 import "packages.csv" as csv : Str
 
 import cli.Stdout
-import parse.Parser exposing [both, lhs, rhs, string, maybe, map, one_or_more]
+import parse.Parse exposing [both, lhs, rhs, string, maybe, map, one_or_more]
 import parse.CSV exposing [csv_string]
 
 main! = |_|
