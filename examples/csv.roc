@@ -6,7 +6,7 @@ app [main!] {
 import "packages.csv" as csv : Str
 
 import cli.Stdout
-import parse.Parse exposing [both, lhs, rhs, string, maybe, map, one_or_more]
+import parse.Parse exposing [both, lhs, rhs, string, maybe, map, one_or_more, finalize]
 import parse.CSV exposing [csv_string]
 
 main! = |_|
@@ -18,7 +18,7 @@ main! = |_|
 
 parse_csv = |csv_text|
     parser = maybe(parse_csv_header) |> rhs(one_or_more(parse_csv_line))
-    parser(csv_text) |> Result.map_ok(.0) |> Result.map_err(|_| InvalidCSV)
+    parser(csv_text) |> Result.map_err(|_| InvalidCSV) |> finalize
 
 parse_csv_header = |str|
     parser = string("repo,alias") |> lhs(maybe(string(","))) |> lhs(string("\n"))
