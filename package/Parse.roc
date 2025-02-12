@@ -56,7 +56,7 @@ string = |prefix|
 expect string("{")("{") == Ok(("{", ""))
 expect string("Hello")("Hello, world!") == Ok(("Hello", ", world!"))
 
-## Create a parser that will match a string of one or more consecutive whitespace characters
+## Match a string of one or more consecutive whitespace characters
 whitespace : Parser Str [WhitespaceNotFound]
 whitespace = |str|
     parser = one_or_more(char |> filter(|c| List.contains([' ', '\t', '\n', '\r'], c))) |> map(|chars| Str.from_utf8(chars))
@@ -90,14 +90,16 @@ expect
 
 ## Parse a digit
 digit : Parser U8 [NotADigit]
-digit = |str| filter(char, |c| is_digit(c))(str) |> Result.map_err(|_| NotADigit)
+digit = |str| 
+    parser = char |> filter(|c| is_digit(c)) |> map(|c| Ok(c - '0'))
+    parser(str) |> Result.map_err(|_| NotADigit)
 
-expect digit("1") == Ok(('1', ""))
+expect digit("1") == Ok((1, ""))
 
 ## Parse an integer
 integer : Parser U64 [NotAnInteger]
 integer = |str|
-    parser = one_or_more(digit) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
+    parser = one_or_more(digit |> map(|c| Ok(c + '0'))) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
     parser(str) |> Result.map_err(|_| NotAnInteger)
 
 expect integer("1") == Ok((1, ""))
