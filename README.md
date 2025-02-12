@@ -25,7 +25,7 @@ expect
     dot = char |> filter(|c| c == '.')
     pattern = string("v") |> rhs(integer) |> lhs(dot) |> both(integer) |> lhs(dot) |> both(integer)
     parser = pattern |> map(|((major, minor), patch)| Ok({major, minor, patch}))
-    parser("v1.2.3") |> finalize == Ok({major: 1, minor: 2, patch: 3})
+    parser("v1.2.34abc") |> finalize_lazy == Ok({major: 1, minor: 2, patch: 34})
 ```
 
 
