@@ -28,3 +28,5 @@ jobs:
         run: roc check package/main.roc
       - name: Roc test main.roc
         run: roc test package/main.roc
+      - name: Run roc check on examples
+        run: for roc_file in ./examples/*.roc; do roc check $roc_file; done
