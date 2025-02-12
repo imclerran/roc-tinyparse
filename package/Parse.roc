@@ -23,6 +23,7 @@ module [
     lhs,
     rhs,
     both,
+    finalize,
 ]
 
 import unicode.CodePoint
@@ -263,3 +264,17 @@ expect
 
 expect
     number("012345") == Ok((12345, ""))
+
+## Finalization ---------------------------------------------------------------
+
+## Finalize a parser result
+finalize : Result (a, Str) err -> Result a err
+finalize = |result| result |> Result.map_ok(.0)
+
+expect
+    parser = string("Hello")
+    parser("Hello, world!") |> finalize == Ok("Hello")
+
+expect 
+    parser = string("world!")
+    parser("Hello, world!") |> finalize == Err(StringNotFound)
