@@ -7,7 +7,7 @@ import "packages.csv" as csv : Str
 
 import cli.Stdout
 import parse.Parse exposing [both, lhs, rhs, string, maybe, map, one_or_more, finalize]
-import parse.CSV exposing [csv_string]
+import parse.CSV exposing [csv_string, comma, newline]
 
 main! = |_|
     parse_csv(csv)?
@@ -21,15 +21,15 @@ parse_csv = |csv_text|
     parser(csv_text) |> Result.map_err(|_| InvalidCSV) |> finalize
 
 parse_csv_header = |str|
-    parser = string("repo,alias") |> lhs(maybe(string(","))) |> lhs(string("\n"))
+    parser = string("repo,alias") |> lhs(maybe(comma)) |> lhs(newline)
     parser(str) |> Result.map_err(|_| InvalidCSVHeader)
 
 parse_csv_line = |str|
     parser =
         csv_string
-        |> lhs(string(","))
+        |> lhs(comma)
         |> both(csv_string)
-        |> lhs(maybe(string(",")))
-        |> lhs(maybe(string("\n")))
+        |> lhs(maybe(comma))
+        |> lhs(maybe(newline))
         |> map(|(repo, alias)| Ok({ repo, alias }))
     parser(str) |> Result.map_err(|_| InvalidCSVLine)
