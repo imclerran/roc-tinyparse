@@ -1,7 +1,7 @@
 ## This module contains parsers specifically for parsing csv files
 module [comma, newline, csv_string]
 
-import Parse exposing [Parser, char, string, rhs, lhs, map, one_or_more, excluding, filter, one_of, finalize]
+import Parse exposing [Parser, char, string, rhs, lhs, map, one_or_more, excluding, filter, one_of, finalize, finalize_lazy]
 
 ## Match a comma character
 comma : Parser U8 [CommaNotFound]
@@ -26,7 +26,7 @@ csv_string = |str|
     parser(str) |> Result.map_err(|_| InvalidString)
 
 expect csv_string("\"Hello, world!\"") |> finalize == Ok("Hello, world!")
-expect csv_string("Hello, world!") |> finalize == Ok("Hello")
+expect csv_string("Hello, world!") |> finalize_lazy == Ok("Hello")
 
 unquoted_string : Parser Str [InvalidUnquotedString]
 unquoted_string = |str|

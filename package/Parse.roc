@@ -26,6 +26,7 @@ module [
     rhs,
     both,
     finalize,
+    finalize_lazy,
 ]
 
 import unicode.CodePoint
@@ -117,12 +118,12 @@ float = |str|
 
 expect
     import Unsafe
-    f = float("123.456789") |> finalize |> Unsafe.unwrap("Failed to parse float")
+    f = float("123.456789") |> finalize_lazy |> Unsafe.unwrap("Failed to parse float")
     approx_eq(f, 123.456789)
 
 expect
     import Unsafe
-    f = float("123") |> finalize |> Unsafe.unwrap("Failed to parse float")
+    f = float("123") |> finalize_lazy |> Unsafe.unwrap("Failed to parse float")
     approx_eq(f, 123)
 
 ## PARSER COMBINATORS ---------------------------------------------------------
@@ -134,7 +135,7 @@ filter = |parser, predicate|
 
 expect
     parser = filter(char, |c| c == 'a')
-    parser("a") |> finalize == Ok('a')
+    parser("a") |> finalize_lazy == Ok('a')
 
 expect
     parser = filter(char, |c| c == 'a')
@@ -151,7 +152,7 @@ expect
 
 expect
     parser = excluding(char, |c| c == 'a')
-    parser("b") |> finalize == Ok('b')
+    parser("b") |> finalize_lazy == Ok('b')
 
 ## Convert a parser of one type into a parser of another type using a tranform function which turns the first type into a result of the second type
 map : Parser a _, (a -> Result b _) -> Parser b _
@@ -167,7 +168,7 @@ map = |parser, transform|
 
 expect
     parser = map(char, |c| Str.from_utf8([c]))
-    parser("a") |> finalize == Ok("a")
+    parser("a") |> finalize_lazy == Ok("a")
 
 ## Convert a parser of one type into a parser of another type using a transform function which turns the first type into a parser of the second type
 flat_map : Parser a _, (a -> Parser b _) -> Parser b _
@@ -179,7 +180,7 @@ flat_map = |parser_a, transform|
 
 expect
     parser = flat_map(char, |c| |str| if c == '1' then Ok(("One", str)) else Err(NotOne))
-    parser("1") |> finalize == Ok("One")
+    parser("1") |> finalize_lazy == Ok("One")
 
 ## Create a parser which matches one or more occurrences of the given parser
 one_or_more : Parser a _ -> Parser (List a) [LessThanOneFound]_
@@ -195,11 +196,11 @@ one_or_more = |parser|
 
 expect
     parser = one_or_more(char)
-    parser("abc") |> finalize == Ok(['a', 'b', 'c'])
+    parser("abc") |> finalize_lazy == Ok(['a', 'b', 'c'])
 
 expect
     parser = one_or_more(char)
-    parser("") |> finalize == Err(LessThanOneFound)
+    parser("") |> finalize_lazy == Err(LessThanOneFound)
 
 ## Create a parser which matches zero or more occurrences of the given parser
 zero_or_more : Parser a _ -> Parser (List a) _
@@ -213,11 +214,11 @@ zero_or_more = |parser|
 
 expect
     parser = zero_or_more(char)
-    parser("abc") |> finalize == Ok(['a', 'b', 'c'])
+    parser("abc") |> finalize_lazy == Ok(['a', 'b', 'c'])
 
 expect
     parser = zero_or_more(char)
-    parser("") |> finalize == Ok([])
+    parser("") |> finalize_lazy == Ok([])
 
 ## Combine 2 parsers into a single parser that returns a tuple of 2 values
 zip : Parser a _, Parser b _ -> Parser (a, b) _
@@ -241,7 +242,7 @@ zip_5 = |parser_a, parser_b, parser_c, parser_d, parser_e|
 
 expect
     parser = zip_5(char, char, char, char, char)
-    parser("abcde") |> finalize == Ok(('a', 'b', 'c', 'd', 'e'))
+    parser("abcde") |> finalize_lazy == Ok(('a', 'b', 'c', 'd', 'e'))
 
 ## Convert a parser that can fail into a parser that can return a Maybe
 maybe : Parser a _ -> Parser (Maybe a) _
@@ -326,14 +327,30 @@ expect
 
 ## Finalization ---------------------------------------------------------------
 
-## Finalize a parser result
-finalize : Result (a, Str) err -> Result a err
-finalize = |result| result |> Result.map_ok(.0)
+## Finalize a parser result only if the Str has been fully consumed
+finalize : Result (a, Str) _ -> Result a [NotConsumed]_
+finalize = |result|
+    when result is
+        Ok((a, "")) -> Ok(a)
+        Ok(_) -> Err(NotConsumed)
+        Err err -> Err err
 
 expect
     parser = string("Hello")
-    parser("Hello, world!") |> finalize == Ok("Hello")
+    parser("Hello") |> finalize == Ok("Hello")
+
+expect
+    parser = string("Hello")
+    parser("Hello, world!") |> finalize == Err(NotConsumed)
+
+## Finalize a parser result without consuming the remaining Str
+finalize_lazy : Result (a, Str) err -> Result a err
+finalize_lazy = |result| result |> Result.map_ok(.0)
+
+expect
+    parser = string("Hello")
+    parser("Hello, world!") |> finalize_lazy == Ok("Hello")
 
 expect 
     parser = string("world!")
-    parser("Hello, world!") |> finalize == Err(StringNotFound)
+    parser("Hello, world!") |> finalize_lazy == Err(StringNotFound)
