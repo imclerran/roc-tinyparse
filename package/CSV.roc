@@ -4,6 +4,7 @@ module [comma, newline, float, integer, csv_string]
 import Parse exposing [Parser, number, char, maybe, string, rhs, lhs, both, map, one_or_more, excluding, filter, one_of, finalize]
 import Utils exposing [int_pair_to_float, approx_eq]
 
+## Match a comma character
 comma : Parser U8 [CommaNotFound]
 comma = |str|
     parser = char |> filter(|c| c == ',')
@@ -11,6 +12,7 @@ comma = |str|
 
 expect comma(",") |> finalize == Ok(',')
 
+## Match a newline character
 newline : Parser U8 [NewlineNotFound]
 newline = |str|
     parser = char |> filter(|c| c == '\n')
@@ -18,11 +20,13 @@ newline = |str|
 
 expect newline("\n") |> finalize == Ok('\n')
 
+## Match an integer number
 integer : Parser U64 [InvalidInteger]
 integer = |str| number(str) |> Result.map_err(|_| InvalidInteger)
 
 expect integer("123") == Ok((123, ""))
 
+## Match a floating point number
 float : Parser F64 [InvalidFloat]
 float = |str|
     parser = number |> both(maybe(string(".") |> rhs(number))) |> map(|(l, maybe_r)|
@@ -42,6 +46,7 @@ expect
     res = float("123") |> Unsafe.unwrap("Failed to parse float")
     approx_eq(res.0, 123)
 
+## Match a string with or without quotation marks
 csv_string : Parser Str [InvalidString]
 csv_string = |str|
     parser = one_of([quoted_string, unquoted_string])
