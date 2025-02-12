@@ -1,8 +1,7 @@
 ## This module contains parsers specifically for parsing csv files
-module [comma, newline, float, integer, csv_string]
+module [comma, newline, csv_string]
 
-import Parse exposing [Parser, number, char, maybe, string, rhs, lhs, both, map, one_or_more, excluding, filter, one_of, finalize]
-import Utils exposing [int_pair_to_float, approx_eq]
+import Parse exposing [Parser, char, string, rhs, lhs, map, one_or_more, excluding, filter, one_of, finalize]
 
 ## Match a comma character
 comma : Parser U8 [CommaNotFound]
@@ -19,32 +18,6 @@ newline = |str|
     parser(str) |> Result.map_err(|_| NewlineNotFound)
 
 expect newline("\n") |> finalize == Ok('\n')
-
-## Match an integer number
-integer : Parser U64 [InvalidInteger]
-integer = |str| number(str) |> Result.map_err(|_| InvalidInteger)
-
-expect integer("123") == Ok((123, ""))
-
-## Match a floating point number
-float : Parser F64 [InvalidFloat]
-float = |str|
-    parser = number |> both(maybe(string(".") |> rhs(number))) |> map(|(l, maybe_r)|
-        when maybe_r is
-            None -> Ok(Num.to_f64(l))
-            Some(r) -> Ok(int_pair_to_float(l, r))
-    )
-    parser(str) |> Result.map_err(|_| InvalidFloat)
-
-expect
-    import Unsafe
-    res = float("123.456789") |> Unsafe.unwrap("Failed to parse float")
-    approx_eq(res.0, 123.456789)
-
-expect
-    import Unsafe
-    res = float("123") |> Unsafe.unwrap("Failed to parse float")
-    approx_eq(res.0, 123)
 
 ## Match a string with or without quotation marks
 csv_string : Parser Str [InvalidString]
