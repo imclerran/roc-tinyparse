@@ -2,5 +2,5 @@ repo,alias,version
 imclerran/roc-ai,ai,0.10.1
 imclerran/roc-asciiart,art,0.2.0
 imclerran/roc-isodate,iso,0.6.0
-imclerran/roc-tinyparse,parse,0.1.2
+imclerran/roc-tinyparse,parse,0.2.0
 imclerran/roc-utf16,utf16,0.2.0
