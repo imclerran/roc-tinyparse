@@ -1,7 +1,27 @@
-module [float, integer, csv_string]
+## This module contains parsers specifically for parsing csv files
+module [comma, newline, float, integer, csv_string]
 
-import Parse exposing [Parser, number, char, maybe, string, rhs, lhs, both, map, one_or_more, excluding, one_of]
+import Parse exposing [Parser, number, char, maybe, string, rhs, lhs, both, map, one_or_more, excluding, filter, one_of, finalize]
 import Utils exposing [int_pair_to_float, approx_eq]
+
+comma : Parser U8 [CommaNotFound]
+comma = |str|
+    parser = char |> filter(|c| c == ',')
+    parser(str) |> Result.map_err(|_| CommaNotFound)
+
+expect comma(",") |> finalize == Ok(',')
+
+newline : Parser U8 [NewlineNotFound]
+newline = |str|
+    parser = char |> filter(|c| c == '\n')
+    parser(str) |> Result.map_err(|_| NewlineNotFound)
+
+expect newline("\n") |> finalize == Ok('\n')
+
+integer : Parser U64 [InvalidInteger]
+integer = |str| number(str) |> Result.map_err(|_| InvalidInteger)
+
+expect integer("123") == Ok((123, ""))
 
 float : Parser F64 [InvalidFloat]
 float = |str|
@@ -22,17 +42,13 @@ expect
     res = float("123") |> Unsafe.unwrap("Failed to parse float")
     approx_eq(res.0, 123)
 
-integer : Parser U64 [InvalidInteger]
-integer = |str|
-    number(str) |> Result.map_err(|_| InvalidInteger)
-
-expect
-    integer("123") == Ok((123, ""))
-
 csv_string : Parser Str [InvalidString]
 csv_string = |str|
     parser = one_of([quoted_string, unquoted_string])
     parser(str) |> Result.map_err(|_| InvalidString)
+
+expect csv_string("\"Hello, world!\"") |> finalize == Ok("Hello, world!")
+expect csv_string("Hello, world!") |> finalize == Ok("Hello")
 
 unquoted_string : Parser Str [InvalidUnquotedString]
 unquoted_string = |str|

@@ -1,3 +1,4 @@
+## This module contains various generic parsers and combinators
 module [
     Parser,
     Maybe,
