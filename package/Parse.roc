@@ -4,7 +4,8 @@ module [
     Maybe,
     char,
     digit,
-    number,
+    integer,
+    float,
     string,
     whitespace,
     atomic_grapheme,
@@ -28,10 +29,9 @@ module [
 ]
 
 import unicode.CodePoint
-import Utils exposing [is_digit]
+import Utils exposing [is_digit, int_pair_to_float, approx_eq]
 
 ## TYPES ----------------------------------------------------------------------
-
 
 ## ```
 ## Parser a err : Str -> Result (a, Str) err
@@ -49,10 +49,26 @@ filter : Parser a _, (a -> Bool) -> Parser a [FilteredOut]
 filter = |parser, predicate|
     map(parser, |match| if predicate(match) then Ok(match) else Err FilteredOut)
 
+expect
+    parser = filter(char, |c| c == 'a')
+    parser("a") |> finalize == Ok('a')
+
+expect
+    parser = filter(char, |c| c == 'a')
+    parser("b") == Err(FilteredOut)
+
 ## Create a parser that will exclude matches that satisfy the given predicate
 excluding : Parser a _, (a -> Bool) -> Parser a [Excluded]_
 excluding = |parser, predicate|
     map(parser, |match| if predicate(match) then Err Excluded else Ok(match))
+
+expect
+    parser = excluding(char, |c| c == 'a')
+    parser("a") == Err(Excluded)
+
+expect
+    parser = excluding(char, |c| c == 'a')
+    parser("b") |> finalize == Ok('b')
 
 ## Convert a parser of one type into a parser of another type using a tranform function which turns the first type into a result of the second type
 map : Parser a _, (a -> Result b _) -> Parser b _
@@ -66,6 +82,10 @@ map = |parser, transform|
                     Err err -> Err err,
     )
 
+expect
+    parser = map(char, |c| Str.from_utf8([c]))
+    parser("a") |> finalize == Ok("a")
+
 ## Convert a parser of one type into a parser of another type using a transform function which turns the first type into a parser of the second type
 flat_map : Parser a _, (a -> Parser b _) -> Parser b _
 flat_map = |parser_a, transform|
@@ -73,6 +93,10 @@ flat_map = |parser_a, transform|
         when parser_a(str) is
             Ok((a, rest)) -> transform(a)(rest)
             Err err -> Err err
+
+expect
+    parser = flat_map(char, |c| |str| if c == '1' then Ok(("One", str)) else Err(NotOne))
+    parser("1") |> finalize == Ok("One")
 
 ## Create a parser which matches one or more occurrences of the given parser
 one_or_more : Parser a _ -> Parser (List a) [LessThanOneFound]_
@@ -86,6 +110,14 @@ one_or_more = |parser|
                 Ok(list),
     )
 
+expect
+    parser = one_or_more(char)
+    parser("abc") |> finalize == Ok(['a', 'b', 'c'])
+
+expect
+    parser = one_or_more(char)
+    parser("") |> finalize == Err(LessThanOneFound)
+
 ## Create a parser which matches zero or more occurrences of the given parser
 zero_or_more : Parser a _ -> Parser (List a) _
 zero_or_more = |parser|
@@ -95,6 +127,14 @@ zero_or_more = |parser|
                 Ok((match, rest)) -> helper (List.append acc match) rest
                 Err _ -> Ok((acc, current_str))
         helper [] str
+
+expect
+    parser = zero_or_more(char)
+    parser("abc") |> finalize == Ok(['a', 'b', 'c'])
+
+expect
+    parser = zero_or_more(char)
+    parser("") |> finalize == Ok([])
 
 ## Combine 2 parsers into a single parser that returns a tuple of 2 values
 zip : Parser a _, Parser b _ -> Parser (a, b) _
@@ -115,6 +155,10 @@ zip_4 = |parser_a, parser_b, parser_c, parser_d|
 zip_5 : Parser a _, Parser b _, Parser c _, Parser d _, Parser e _ -> Parser (a, b, c, d, e) _
 zip_5 = |parser_a, parser_b, parser_c, parser_d, parser_e|
     zip(parser_a, zip_4(parser_b, parser_c, parser_d, parser_e)) |> map(|(a, (b, c, d, e))| Ok((a, b, c, d, e)))
+
+expect
+    parser = zip_5(char, char, char, char, char)
+    parser("abcde") |> finalize == Ok(('a', 'b', 'c', 'd', 'e'))
 
 ## Convert a parser that can fail into a parser that can return a Maybe
 maybe : Parser a _ -> Parser (Maybe a) _
@@ -186,7 +230,7 @@ expect
     parser("lr") == Ok(("r", ""))
 
 expect
-    parser = string("{") |> rhs(number) |> lhs(string("}"))
+    parser = string("{") |> rhs(integer) |> lhs(string("}"))
     parser("{123}") == Ok((123, ""))
 
 ## keep the result of both parsers
@@ -208,11 +252,8 @@ string = |prefix|
         else
             Err StringNotFound
 
-expect
-    string("{")("{") == Ok(("{", ""))
-
-expect
-    string("Hello")("Hello, world!") == Ok(("Hello", ", world!"))
+expect string("{")("{") == Ok(("{", ""))
+expect string("Hello")("Hello, world!") == Ok(("Hello", ", world!"))
 
 ## Create a parser that will match a string of one or more consecutive whitespace characters
 whitespace : Parser Str [WhitespaceNotFound]
@@ -230,8 +271,7 @@ char = |str|
         [c, .. as rest] -> Ok((c, Str.from_utf8_lossy(rest)))
         [] -> Err CharNotFound
 
-expect
-    char("1") == Ok(('1', ""))
+expect char("1") == Ok(('1', ""))
 
 ## Parse a non-clustered grapheme
 atomic_grapheme : Parser Str [GraphemeNotFound]
@@ -251,20 +291,36 @@ expect
 digit : Parser U8 [NotADigit]
 digit = |str| filter(char, |c| is_digit(c))(str) |> Result.map_err(|_| NotADigit)
 
-expect
-    digit("1") == Ok(('1', ""))
+expect digit("1") == Ok(('1', ""))
 
-## Parse a number
-number : Parser U64 [NotANumber]
-number = |str|
+## Parse an integer
+integer : Parser U64 [NotAnInteger]
+integer = |str|
     parser = one_or_more(digit) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
-    parser(str) |> Result.map_err(|_| NotANumber)
+    parser(str) |> Result.map_err(|_| NotAnInteger)
+
+expect integer("1") == Ok((1, ""))
+expect integer("012345") == Ok((12345, ""))
+
+## Parse a floating point number
+float : Parser F64 [NotAFloat]
+float = |str|
+    parser = integer |> both(maybe(string(".") |> rhs(integer))) |> map(|(l, maybe_r)|
+        when maybe_r is
+            None -> Ok(Num.to_f64(l))
+            Some(r) -> Ok(int_pair_to_float(l, r))
+    )
+    parser(str) |> Result.map_err(|_| NotAFloat)
 
 expect
-    number("1") == Ok((1, ""))
+    import Unsafe
+    f = float("123.456789") |> finalize |> Unsafe.unwrap("Failed to parse float")
+    approx_eq(f, 123.456789)
 
 expect
-    number("012345") == Ok((12345, ""))
+    import Unsafe
+    f = float("123") |> finalize |> Unsafe.unwrap("Failed to parse float")
+    approx_eq(f, 123)
 
 ## Finalization ---------------------------------------------------------------
 
