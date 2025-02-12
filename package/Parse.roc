@@ -42,6 +42,87 @@ Parser a err : Str -> Result (a, Str) err
 
 Maybe a : [Some a, None]
 
+## PARSERS --------------------------------------------------------------------
+
+## Create a parser that will match a specific string
+string : Str -> Parser Str [StringNotFound]
+string = |prefix|
+    |str|
+        if Str.starts_with(str, prefix) then
+            Ok((prefix, Str.drop_prefix(str, prefix)))
+        else
+            Err StringNotFound
+
+expect string("{")("{") == Ok(("{", ""))
+expect string("Hello")("Hello, world!") == Ok(("Hello", ", world!"))
+
+## Create a parser that will match a string of one or more consecutive whitespace characters
+whitespace : Parser Str [WhitespaceNotFound]
+whitespace = |str|
+    parser = one_or_more(char |> filter(|c| List.contains([' ', '\t', '\n', '\r'], c))) |> map(|chars| Str.from_utf8(chars))
+    parser(str) |> Result.map_err(|_| WhitespaceNotFound)
+
+expect whitespace(" \t\n\r") == Ok((" \t\n\r", ""))
+expect whitespace("Hello, world!") == Err(WhitespaceNotFound)
+
+## Parse a single character
+char : Parser U8 [CharNotFound]
+char = |str|
+    when Str.to_utf8(str) is
+        [c, .. as rest] -> Ok((c, Str.from_utf8_lossy(rest)))
+        [] -> Err CharNotFound
+
+expect char("1") == Ok(('1', ""))
+
+## Parse a non-clustered grapheme
+atomic_grapheme : Parser Str [GraphemeNotFound]
+atomic_grapheme = |str|
+    when Str.to_utf8(str) |> CodePoint.parse_partial_utf8 is
+        Ok({code_point}) -> 
+            cp_str = CodePoint.to_str([code_point]) ?  |_| GraphemeNotFound
+            rest = Str.drop_prefix(str, cp_str)
+            Ok((cp_str, rest))
+        Err _ -> Err GraphemeNotFound
+
+expect
+    res = atomic_grapheme("🔥")
+    res == Ok(("🔥", ""))
+
+## Parse a digit
+digit : Parser U8 [NotADigit]
+digit = |str| filter(char, |c| is_digit(c))(str) |> Result.map_err(|_| NotADigit)
+
+expect digit("1") == Ok(('1', ""))
+
+## Parse an integer
+integer : Parser U64 [NotAnInteger]
+integer = |str|
+    parser = one_or_more(digit) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
+    parser(str) |> Result.map_err(|_| NotAnInteger)
+
+expect integer("1") == Ok((1, ""))
+expect integer("012345") == Ok((12345, ""))
+
+## Parse a floating point number
+float : Parser F64 [NotAFloat]
+float = |str|
+    parser = integer |> both(maybe(string(".") |> rhs(integer))) |> map(|(l, maybe_r)|
+        when maybe_r is
+            None -> Ok(Num.to_f64(l))
+            Some(r) -> Ok(int_pair_to_float(l, r))
+    )
+    parser(str) |> Result.map_err(|_| NotAFloat)
+
+expect
+    import Unsafe
+    f = float("123.456789") |> finalize |> Unsafe.unwrap("Failed to parse float")
+    approx_eq(f, 123.456789)
+
+expect
+    import Unsafe
+    f = float("123") |> finalize |> Unsafe.unwrap("Failed to parse float")
+    approx_eq(f, 123)
+
 ## PARSER COMBINATORS ---------------------------------------------------------
 
 ## Create a parser that will filter out matches that do not satisfy the given predicate
@@ -240,87 +321,6 @@ both = |parser_l, parser_r| zip(parser_l, parser_r)
 expect
     parser = string("{") |> both(string("}"))
     parser("{}") == Ok (("{", "}"), "")
-
-## PARSERS --------------------------------------------------------------------
-
-## Create a parser that will match a specific string
-string : Str -> Parser Str [StringNotFound]
-string = |prefix|
-    |str|
-        if Str.starts_with(str, prefix) then
-            Ok((prefix, Str.drop_prefix(str, prefix)))
-        else
-            Err StringNotFound
-
-expect string("{")("{") == Ok(("{", ""))
-expect string("Hello")("Hello, world!") == Ok(("Hello", ", world!"))
-
-## Create a parser that will match a string of one or more consecutive whitespace characters
-whitespace : Parser Str [WhitespaceNotFound]
-whitespace = |str|
-    parser = one_or_more(char |> filter(|c| List.contains([' ', '\t', '\n', '\r'], c))) |> map(|chars| Str.from_utf8(chars))
-    parser(str) |> Result.map_err(|_| WhitespaceNotFound)
-
-expect whitespace(" \t\n\r") == Ok((" \t\n\r", ""))
-expect whitespace("Hello, world!") == Err(WhitespaceNotFound)
-
-## Parse a single character
-char : Parser U8 [CharNotFound]
-char = |str|
-    when Str.to_utf8(str) is
-        [c, .. as rest] -> Ok((c, Str.from_utf8_lossy(rest)))
-        [] -> Err CharNotFound
-
-expect char("1") == Ok(('1', ""))
-
-## Parse a non-clustered grapheme
-atomic_grapheme : Parser Str [GraphemeNotFound]
-atomic_grapheme = |str|
-    when Str.to_utf8(str) |> CodePoint.parse_partial_utf8 is
-        Ok({code_point}) -> 
-            cp_str = CodePoint.to_str([code_point]) ?  |_| GraphemeNotFound
-            rest = Str.drop_prefix(str, cp_str)
-            Ok((cp_str, rest))
-        Err _ -> Err GraphemeNotFound
-
-expect
-    res = atomic_grapheme("🔥")
-    res == Ok(("🔥", ""))
-
-## Parse a digit
-digit : Parser U8 [NotADigit]
-digit = |str| filter(char, |c| is_digit(c))(str) |> Result.map_err(|_| NotADigit)
-
-expect digit("1") == Ok(('1', ""))
-
-## Parse an integer
-integer : Parser U64 [NotAnInteger]
-integer = |str|
-    parser = one_or_more(digit) |> map(|digits| digits |> Str.from_utf8_lossy |> Str.to_u64)
-    parser(str) |> Result.map_err(|_| NotAnInteger)
-
-expect integer("1") == Ok((1, ""))
-expect integer("012345") == Ok((12345, ""))
-
-## Parse a floating point number
-float : Parser F64 [NotAFloat]
-float = |str|
-    parser = integer |> both(maybe(string(".") |> rhs(integer))) |> map(|(l, maybe_r)|
-        when maybe_r is
-            None -> Ok(Num.to_f64(l))
-            Some(r) -> Ok(int_pair_to_float(l, r))
-    )
-    parser(str) |> Result.map_err(|_| NotAFloat)
-
-expect
-    import Unsafe
-    f = float("123.456789") |> finalize |> Unsafe.unwrap("Failed to parse float")
-    approx_eq(f, 123.456789)
-
-expect
-    import Unsafe
-    f = float("123") |> finalize |> Unsafe.unwrap("Failed to parse float")
-    approx_eq(f, 123)
 
 ## Finalization ---------------------------------------------------------------
 
