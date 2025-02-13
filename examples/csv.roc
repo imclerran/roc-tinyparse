@@ -19,7 +19,7 @@ main! = |_|
 parse_csv : Str -> Result (List { alias : Str, repo : Str, version: Str }) [InvalidCSV]
 parse_csv = |csv_text|
     parser = maybe(parse_csv_header) |> rhs(one_or_more(parse_csv_line))
-    parser(csv_text) |> Result.map_err(|_| InvalidCSV) |> finalize
+    parser(csv_text) |> finalize |> Result.map_err(|_| InvalidCSV) 
 
 parse_csv_header = |str|
     parser = string("repo,alias,version") |> lhs(maybe(comma)) |> lhs(newline)
