@@ -29,6 +29,11 @@ expect
     parser = pattern |> map(|((major, minor), patch)| Ok({major, minor, patch}))
     parser("v1.2.34") |> finalize == Ok({major: 1, minor: 2, patch: 34 })
 
+expect
+    parser = rhs(maybe(string("v")), zip_3(integer, rhs(dot, integer), rhs(dot, integer)))
+    parser("v1.2.34_abc") |> finalize_lazy == Ok((1, 2, 34))
+```
+```roc
 major = integer |> map(|n| Ok(Major(n)))
 
 minor = maybe(dot |> rhs(integer)) |> map(|maybe_n|
@@ -43,9 +48,10 @@ patch = maybe(dot |> rhs(integer)) |> map(|maybe_n|
             None -> Ok(NoPatch)
     )
 
-expect
-    parser = rhs(maybe(string("v")), zip_3(major, minor, patch))
-    parser("v1.2.34_abc") |> finalize_lazy == Ok((Major(1), Minor(2), Patch(34)))
+semver = rhs(maybe(string("v")), zip_3(major, minor, patch))
+
+expect semver("v1.2.34_abc") |> finalize_lazy == Ok((Major(1), Minor(2), Patch(34)))
+expect semver("123") |> finalize_lazy == Ok((Major(123), NoMinor, NoPatch))
 ```
 
 
