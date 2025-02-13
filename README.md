@@ -15,11 +15,11 @@ expect
 
 expect
     parser = string("Hello")
-    parser("Hello, world!") |> finalize == Ok("Hello")
+    parser("Hello, world!") |> finalize_lazy == Ok("Hello")
 
 expect
     parser = string("Hello") |> lhs(comma) |> lhs(whitespace) |> both(string("world")) 
-    parser("Hello, world!") |> finalize == Ok(("Hello", "world"))
+    parser("Hello, world!") |> finalize_lazy == Ok(("Hello", "world"))
 
 expect
     dot = char |> filter(|c| c == '.')
