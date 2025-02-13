@@ -27,7 +27,7 @@ parse_csv_header = |str|
 
 parse_csv_line = |str|
     parser =
-        zip_3(csv_string |> lhs(comma), csv_string |> lhs(comma), csv_string |> lhs(maybe(comma)))
+        zip_3(lhs(csv_string, comma),  lhs(csv_string, comma), lhs(csv_string, maybe(comma)))
         |> lhs(maybe(newline))
         |> map(|(repo, alias, version)| Ok({ repo, alias, version }))
     parser(str) |> Result.map_err(|_| InvalidCSVLine)
