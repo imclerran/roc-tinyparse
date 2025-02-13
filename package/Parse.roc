@@ -19,6 +19,7 @@ module [
     zip_3,
     zip_4,
     zip_5,
+    zip_6,
     maybe,
     or_else,
     one_of,
@@ -240,9 +241,13 @@ zip_5 : Parser a _, Parser b _, Parser c _, Parser d _, Parser e _ -> Parser (a,
 zip_5 = |parser_a, parser_b, parser_c, parser_d, parser_e|
     zip(parser_a, zip_4(parser_b, parser_c, parser_d, parser_e)) |> map(|(a, (b, c, d, e))| Ok((a, b, c, d, e)))
 
+zip_6 : Parser a _, Parser b _, Parser c _, Parser d _, Parser e _, Parser f _ -> Parser (a, b, c, d, e, f) _
+zip_6 = |parser_a, parser_b, parser_c, parser_d, parser_e, parser_f|
+    zip(parser_a, zip_5(parser_b, parser_c, parser_d, parser_e, parser_f)) |> map(|(a, (b, c, d, e, f))| Ok((a, b, c, d, e, f)))
+
 expect
-    parser = zip_5(char, char, char, char, char)
-    parser("abcde") |> finalize_lazy == Ok(('a', 'b', 'c', 'd', 'e'))
+    parser = zip_6(digit, digit, digit, digit, digit, digit)
+    parser("123456") |> finalize_lazy == Ok((1, 2, 3, 4, 5, 6))
 
 ## Convert a parser that can fail into a parser that can return a Maybe
 maybe : Parser a _ -> Parser (Maybe a) _
