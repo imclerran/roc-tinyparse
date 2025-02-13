@@ -7,7 +7,7 @@ A small parser combinator library for roc.
 [![Latest release][version_badge]][version_link]
 
 
-## Example
+## Examples
 ```roc
 expect 
     parser = string("Hello")
@@ -20,12 +20,32 @@ expect
 expect
     parser = string("Hello") |> lhs(comma) |> lhs(whitespace) |> both(string("world")) 
     parser("Hello, world!") |> finalize_lazy == Ok(("Hello", "world"))
+```
+```roc
+dot = char |> filter(|c| c == '.')
 
 expect
-    dot = char |> filter(|c| c == '.')
-    pattern = string("v") |> rhs(integer) |> lhs(dot) |> both(integer) |> lhs(dot) |> both(integer)
+    pattern = maybe(string("v")) |> rhs(integer) |> lhs(dot) |> both(integer) |> lhs(dot) |> both(integer)
     parser = pattern |> map(|((major, minor), patch)| Ok({major, minor, patch}))
-    parser("v1.2.34abc") |> finalize_lazy == Ok({major: 1, minor: 2, patch: 34})
+    parser("v1.2.34") |> finalize == Ok({major: 1, minor: 2, patch: 34 })
+
+major = integer |> map(|n| Ok(Major(n)))
+
+minor = maybe(dot |> rhs(integer)) |> map(|maybe_n|
+        when maybe_n is
+            Some(n) -> Ok(Minor(n))
+            None -> Ok(NoMinor)
+    )
+
+patch = maybe(dot |> rhs(integer)) |> map(|maybe_n|
+        when maybe_n is
+            Some(n) -> Ok(Patch(n))
+            None -> Ok(NoPatch)
+    )
+
+expect
+    parser = rhs(maybe(string("v")), zip_3(major, minor, patch))
+    parser("v1.2.34_abc") |> finalize_lazy == Ok((Major(1), Minor(2), Patch(34)))
 ```
 
 
