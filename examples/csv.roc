@@ -6,7 +6,7 @@ app [main!] {
 import "packages.csv" as csv : Str
 
 import cli.Stdout
-import parse.Parse exposing [both, lhs, rhs, string, maybe, map, one_or_more, finalize]
+import parse.Parse exposing [lhs, rhs, string, whitespace, maybe, map, one_or_more, zip_3, finalize]
 import parse.CSV exposing [csv_string, comma, newline]
 
 main! = |_|
@@ -16,10 +16,10 @@ main! = |_|
             Stdout.line!("repo: ${repo} | alias: ${alias} | version: ${version}"),
     )
 
-parse_csv : Str -> Result (List { alias : Str, repo : Str, version: Str }) [InvalidCSV]
+parse_csv : Str -> Result (List { alias : Str, repo : Str, version : Str }) [InvalidCSV]
 parse_csv = |csv_text|
-    parser = maybe(parse_csv_header) |> rhs(one_or_more(parse_csv_line))
-    parser(csv_text) |> finalize |> Result.map_err(|_| InvalidCSV) 
+    parser = maybe(parse_csv_header) |> rhs(one_or_more(parse_csv_line)) |> lhs(maybe(whitespace))
+    parser(csv_text) |> finalize |> Result.map_err(|_| InvalidCSV)
 
 parse_csv_header = |str|
     parser = string("repo,alias,version") |> lhs(maybe(comma)) |> lhs(newline)
@@ -27,12 +27,7 @@ parse_csv_header = |str|
 
 parse_csv_line = |str|
     parser =
-        csv_string # first column
-        |> lhs(comma) # keep first column, discard the comma
-        |> both(csv_string) # keep the first and second column
-        |> lhs(comma) # keep the first and second column, discard the comma
-        |> both(csv_string) # keep the (first, second), and third column
-        |> lhs(maybe(comma)) # discard the optional comma at the end of the line
-        |> lhs(maybe(newline)) # discard the newline, which is optional at the end of the file
-        |> map(|((repo, alias), version)| Ok({ repo, alias, version })) 
+        zip_3(csv_string |> lhs(comma), csv_string |> lhs(comma), csv_string |> lhs(maybe(comma)))
+        |> lhs(maybe(newline))
+        |> map(|(repo, alias, version)| Ok({ repo, alias, version }))
     parser(str) |> Result.map_err(|_| InvalidCSVLine)
