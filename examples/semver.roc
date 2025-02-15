@@ -6,6 +6,8 @@ app [main!] {
 import cli.Stdout
 import parse.Parse exposing [char, filter, one_or_more, both, or_else, map, zip_3, rhs, zero_or_more, maybe, finalize_lazy]
 
+Semver : { major : U64, minor : U64, patch : U64, pre_release : List Str, build : List Str }
+
 semvers = [
     "0.0.1",
     "1.9.0",
@@ -26,15 +28,17 @@ main! = |_args|
         semvers,
         |semver_str|
             when parse_semver(semver_str) is
-                Ok(semver) -> 
+                Ok(semver) ->
                     Stdout.line!(semver_str)?
                     Stdout.line!("------------------------------")?
                     print_semver!(semver)?
                     Stdout.line!("")
-                Err(InvalidSemver) -> 
+
+                Err(InvalidSemver) ->
                     Stdout.line!("Invalid SemVer: ${semver_str}\n"),
     )
 
+print_semver! : Semver => Result {} _
 print_semver! = |semver|
     Stdout.line!("Major: ${semver.major |> Num.to_str}")?
     Stdout.line!("Minor: ${semver.minor |> Num.to_str}")?
@@ -46,30 +50,30 @@ print_semver! = |semver|
         [] -> Stdout.line!("No build")
         bs -> Stdout.line!("Build: ${Str.join_with(bs, ".")}")
 
+map_maybe : [Some a, None], (a -> b), b -> b
 map_maybe = |m, f, g|
     when m is
         Some(v) -> f(v)
         None -> g
 
+parse_semver : Str -> Result Semver [InvalidSemver]
 parse_semver = |str|
-    parser =
-        valid_semver
-        |> map(
-            |(core, maybe_pre_release, maybe_build)|
-                Ok(
-                    {
-                        major: core.0,
-                        minor: core.1,
-                        patch: core.2,
-                        pre_release: map_maybe(maybe_pre_release, |ids| List.map(ids, Str.from_utf8_lossy), []),
-                        build: map_maybe(maybe_build, |ids| List.map(ids, Str.from_utf8_lossy), []),
-                        # build: map_maybe(maybe_build_cs, |cs| Build(Str.from_utf8_lossy(cs)), NoBuild),
-                    },
-                ),
-        )
+    parser = map(
+        valid_semver,
+        |(core, maybe_pre_release, maybe_build)|
+            Ok(
+                {
+                    major: core.0,
+                    minor: core.1,
+                    patch: core.2,
+                    pre_release: map_maybe(maybe_pre_release, |ids| List.map(ids, Str.from_utf8_lossy), []),
+                    build: map_maybe(maybe_build, |ids| List.map(ids, Str.from_utf8_lossy), []),
+                },
+            ),
+    )
     parser(str) |> finalize_lazy |> Result.map_err(|_| InvalidSemver)
 
-## PARSER GRAMMAR =============================================================
+# PARSER GRAMMAR ==============================================================
 
 ## ```
 ## <valid semver> ::= <version core>
@@ -114,8 +118,7 @@ pre_release = dot_separated_pre_release_identifiers
 ##                                           | <pre-release identifier> "." <dot-separated pre-release identifiers>
 ## ```
 dot_separated_pre_release_identifiers =
-    pre_release_identifier
-    |> both(zero_or_more(rhs(dot, pre_release_identifier)))
+    both(pre_release_identifier, zero_or_more(rhs(dot, pre_release_identifier)))
     |> map(|(id, ids)| Ok(List.join([[id], ids])))
 
 ## ```
@@ -128,8 +131,7 @@ build = dot_separated_build_identifiers
 ##                                     | <build identifier> "." <dot-separated build identifiers>
 ## ```
 dot_separated_build_identifiers =
-    build_identifier
-    |> both(zero_or_more(rhs(dot, build_identifier)))
+    both(build_identifier, zero_or_more(rhs(dot, build_identifier)))
     |> map(|(id, ids)| Ok(List.join([[id], ids])))
 
 ## ```
@@ -167,10 +169,9 @@ alphanumeric_identifier =
 ##                        | <positive digit> <digits>
 ## ```
 numeric_identifier =
-    zero
-    |> map(|c| Ok([c]))
-    |> or_else(positive_digit |> map(|c| Ok([c])))
+    (zero |> map(|c| Ok([c])))
     |> or_else(both(positive_digit, digits) |> map(|(c, cs)| Ok(List.join([[c], cs]))))
+    |> or_else(positive_digit |> map(|c| Ok([c])))
 
 ## ```
 ## <identifier characters> ::= <identifier character>
