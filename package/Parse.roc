@@ -23,6 +23,8 @@ module [
     maybe,
     or_else,
     one_of,
+    keep_left,
+    keep_right,
     lhs,
     rhs,
     both,
@@ -44,7 +46,7 @@ Parser a err : Str -> Result (a, Str) err
 
 Maybe a : [Some a, None]
 
-## PARSERS --------------------------------------------------------------------
+# PARSERS ---------------------------------------------------------------------
 
 ## Create a parser that will match a specific string
 string : Str -> Parser Str [StringNotFound]
@@ -127,7 +129,7 @@ expect
     f = float("123") |> finalize_lazy |> Unsafe.unwrap("Failed to parse float")
     approx_eq(f, 123)
 
-## PARSER COMBINATORS ---------------------------------------------------------
+# PARSER COMBINATORS ----------------------------------------------------------
 
 ## Create a parser that will filter out matches that do not satisfy the given predicate
 filter : Parser a _, (a -> Bool) -> Parser a [FilteredOut]
@@ -226,6 +228,10 @@ zip : Parser a _, Parser b _ -> Parser (a, b) _
 zip = |parser_a, parser_b|
     flat_map(parser_a, |match_a| map(parser_b, |match_b| Ok((match_a, match_b))))
 
+expect
+    parser = string("{") |> zip(string("}"))
+    parser("{}") == Ok (("{", "}"), "")
+
 ## Combine 3 parsers into a single parser that returns a tuple of 3 values
 zip_3 : Parser a _, Parser b _, Parser c _ -> Parser (a, b, c) _
 zip_3 = |parser_a, parser_b, parser_c|
@@ -298,37 +304,42 @@ expect
     parser = one_of([string("abc"), string("def")])
     parser("ghi") == Err(NoMatchFound)
 
-## OPERATORS ------------------------------------------------------------------
 
 ## keep the result of the left parser
-lhs : Parser a _, Parser b _ -> Parser a _
-lhs = |parser_l, parser_r|
+keep_left : Parser a _, Parser b _ -> Parser a _
+keep_left = |parser_l, parser_r|
     zip(parser_l, parser_r) |> map(|(l, _r)| Ok(l))
 
 expect
-    parser = string("l") |> lhs(string("r"))
+    parser = string("l") |> keep_left(string("r"))
     parser("lr") == Ok(("l", ""))
 
 ## keep the result of the right parser
-rhs : Parser a _, Parser b _ -> Parser b _
-rhs = |parser_l, parser_r|
+keep_right : Parser a _, Parser b _ -> Parser b _
+keep_right = |parser_l, parser_r|
     zip(parser_l, parser_r) |> map(|(_l, r)| Ok(r))
 
 expect
-    parser = string("l") |> rhs(string("r"))
+    parser = string("l") |> keep_right(string("r"))
     parser("lr") == Ok(("r", ""))
 
 expect
-    parser = string("{") |> rhs(integer) |> lhs(string("}"))
+    parser = string("{") |> keep_right(integer) |> keep_left(string("}"))
     parser("{123}") == Ok((123, ""))
+
+# ALIASES ---------------------------------------------------------------------
+
+## keep the result of the "left hand side" parser
+lhs : Parser l _, Parser r _ -> Parser l _
+lhs = |parser_l, parser_r| keep_left(parser_l, parser_r)
+
+## keep the result of the "right hand side" parser
+rhs : Parser l _, Parser r _ -> Parser r _
+rhs = |parser_l, parser_r| keep_right(parser_l, parser_r)
 
 ## keep the result of both parsers
 both : Parser a _, Parser b _ -> Parser (a, b) _
 both = |parser_l, parser_r| zip(parser_l, parser_r)
-
-expect
-    parser = string("{") |> both(string("}"))
-    parser("{}") == Ok (("{", "}"), "")
 
 ## Finalization ---------------------------------------------------------------
 
