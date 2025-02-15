@@ -34,15 +34,6 @@ main! = |_args|
                 Err(InvalidSemver) -> 
                     Stdout.line!("Invalid SemVer: ${semver_str}\n"),
     )
-    # when args is
-    #     [_, arg1, ..] ->
-    #         semver_str = Arg.display(arg1)
-    #         when parse_semver(semver_str) is
-    #             Ok(semver) -> print_semver!(semver)
-    #             Err(InvalidSemver) -> Stdout.line!("Invalid SemVer: ${semver_str}")
-
-    #     [bin] -> Stdout.line!("Usage: ${Arg.display(bin)} <version>")
-    #     [] -> Stdout.line!("Usage: semver <version>")
 
 print_semver! = |semver|
     Stdout.line!("Major: ${semver.major |> Num.to_str}")?
@@ -77,6 +68,8 @@ parse_semver = |str|
                 ),
         )
     parser(str) |> finalize_lazy |> Result.map_err(|_| InvalidSemver)
+
+## PARSER GRAMMAR =============================================================
 
 ## ```
 ## <valid semver> ::= <version core>
