@@ -40,15 +40,15 @@ main! = |_args|
 
 print_semver! : Semver => Result {} _
 print_semver! = |semver|
-    Stdout.line!("Major: ${semver.major |> Num.to_str}")?
-    Stdout.line!("Minor: ${semver.minor |> Num.to_str}")?
-    Stdout.line!("Patch: ${semver.patch |> Num.to_str}")?
+    "Major: ${semver.major |> Num.to_str}" |> Stdout.line!()?
+    "Minor: ${semver.minor |> Num.to_str}" |> Stdout.line!()?
+    "Patch: ${semver.patch |> Num.to_str}" |> Stdout.line!()?
     when semver.pre_release is
-        [] -> Stdout.line!("No pre-release")?
-        ps -> Stdout.line!("Pre-release: ${Str.join_with(ps, ".")}")?
+        [] -> "No pre-release" |> Stdout.line!()?
+        ps -> "Pre-release: ${Str.join_with(ps, ".")}" |> Stdout.line!()?
     when semver.build is
-        [] -> Stdout.line!("No build")
-        bs -> Stdout.line!("Build: ${Str.join_with(bs, ".")}")
+        [] -> "No build" |> Stdout.line!()
+        bs -> "Build: ${Str.join_with(bs, ".")}" |> Stdout.line!()
 
 map_maybe : [Some a, None], (a -> b), b -> b
 map_maybe = |m, f, g|
