@@ -54,7 +54,7 @@ expect semver("v1.2.34_abc") |> finalize_lazy == Ok((Major(1), Minor(2), Patch(3
 expect semver("123") |> finalize_lazy == Ok((Major(123), NoMinor, NoPatch))
 ```
 
-## Semver in < 60 lines
+## SemVer in < 60 lines
 ```roc
 valid_semver = zip_3(version_core, maybe(rhs(hyphen, pre_release)), maybe(rhs(plus, build)))
 
