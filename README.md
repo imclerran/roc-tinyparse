@@ -54,6 +54,67 @@ expect semver("v1.2.34_abc") |> finalize_lazy == Ok((Major(1), Minor(2), Patch(3
 expect semver("123") |> finalize_lazy == Ok((Major(123), NoMinor, NoPatch))
 ```
 
+## Semver in < 60 lines
+```roc
+valid_semver = zip_3(version_core, maybe(rhs(hyphen, pre_release)), maybe(rhs(plus, build)))
+
+plus = char |> filter(|c| c == '+')
+
+version_core = zip_3(major, rhs(dot, minor), rhs(dot, patch))
+
+major = numeric_identifier |> map(|id| Str.from_utf8_lossy(id) |> Str.to_u64)
+
+minor = numeric_identifier |> map(|id| Str.from_utf8_lossy(id) |> Str.to_u64)
+
+patch = numeric_identifier |> map(|id| Str.from_utf8_lossy(id) |> Str.to_u64)
+
+pre_release = dot_separated_pre_release_identifiers
+
+dot_separated_pre_release_identifiers =
+    both(pre_release_identifier, zero_or_more(rhs(dot, pre_release_identifier)))
+    |> map(|(id, ids)| Ok(List.join([[id], ids])))
+
+build = dot_separated_build_identifiers
+
+dot_separated_build_identifiers =
+    both(build_identifier, zero_or_more(rhs(dot, build_identifier)))
+    |> map(|(id, ids)| Ok(List.join([[id], ids])))
+
+dot = char |> filter(|c| c == '.')
+
+pre_release_identifier = alphanumeric_identifier |> or_else(numeric_identifier)
+
+build_identifier = alphanumeric_identifier |> or_else(digits)
+
+alphanumeric_identifier =
+    is_non_digit = |c| (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z') or c == '-'
+    contains_non_digit = |cs| List.walk_until(cs, Bool.false, |_, c| if is_non_digit(c) then Break(Bool.true) else Continue(Bool.false))
+    identifier_characters
+    |> filter(|cs| contains_non_digit(cs))
+
+numeric_identifier =
+    (zero |> map(|c| Ok([c])))
+    |> or_else(both(positive_digit, digits) |> map(|(c, cs)| Ok(List.join([[c], cs]))))
+    |> or_else(positive_digit |> map(|c| Ok([c])))
+
+identifier_characters = one_or_more(identifier_character)
+
+identifier_character = digit |> or_else(non_digit)
+
+non_digit = letter |> or_else(hyphen)
+
+hyphen = char |> filter(|c| c == '-')
+
+digits = one_or_more(digit)
+
+digit = zero |> or_else(positive_digit)
+
+zero = char |> filter(|c| c == '0')
+
+positive_digit = char |> filter(|c| c >= '1' and c <= '9')
+
+letter = char |> filter(|c| (c >= 'a' and c <= 'z') or (c >= 'A' and c <= 'Z'))
+```
 
 <!-- LINKS -->
 [roc_badge]: https://img.shields.io/endpoint?url=https%3A%2F%2Fpastebin.com%2Fraw%2FcFzuCCd7
