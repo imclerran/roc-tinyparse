@@ -13,7 +13,7 @@ main! = |_|
     parse_csv(csv)?
     |> List.for_each_try!(
         |{ repo, alias, version }|
-            Stdout.line!("repo: ${repo} | alias: ${alias} | version: ${version}"),
+            "repo: ${repo} | alias: ${alias} | version: ${version}" |> Stdout.line!(),
     )
 
 parse_csv : Str -> Result (List { alias : Str, repo : Str, version : Str }) [InvalidCSV]
