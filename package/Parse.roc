@@ -1,7 +1,6 @@
 ## This module contains various generic parsers and combinators
 module [
     Parser,
-    Maybe,
     char,
     digit,
     integer,
@@ -34,6 +33,7 @@ module [
 
 import unicode.CodePoint
 import Utils exposing [is_digit, int_pair_to_float, approx_eq]
+import Maybe exposing [Maybe]
 
 ## TYPES ----------------------------------------------------------------------
 
@@ -43,8 +43,6 @@ import Utils exposing [is_digit, int_pair_to_float, approx_eq]
 ## A Parser is a function which takes a Str and returns a Result containing a tuple of the matched value and the remaining Str after the match, or an error if the match was not found at the beginning of the Str.
 ## > Note that the matched value which is returned does not need to be a Str, but can be transformed in any way.
 Parser a err : Str -> Result (a, Str) err
-
-Maybe a : [Some a, None]
 
 # PARSERS ---------------------------------------------------------------------
 
@@ -82,10 +80,11 @@ expect char("1") == Ok(('1', ""))
 atomic_grapheme : Parser Str [GraphemeNotFound]
 atomic_grapheme = |str|
     when Str.to_utf8(str) |> CodePoint.parse_partial_utf8 is
-        Ok({code_point}) -> 
-            cp_str = CodePoint.to_str([code_point]) ?  |_| GraphemeNotFound
+        Ok({ code_point }) ->
+            cp_str = CodePoint.to_str([code_point]) ? |_| GraphemeNotFound
             rest = Str.drop_prefix(str, cp_str)
             Ok((cp_str, rest))
+
         Err _ -> Err GraphemeNotFound
 
 expect
@@ -94,7 +93,7 @@ expect
 
 ## Parse a digit (converts from ASCII value to integer)
 digit : Parser U8 [NotADigit]
-digit = |str| 
+digit = |str|
     parser = char |> filter(|c| is_digit(c)) |> map(|c| Ok(c - '0'))
     parser(str) |> Result.map_err(|_| NotADigit)
 
@@ -112,11 +111,10 @@ expect integer("012345") == Ok((12345, ""))
 ## Parse a floating point number
 float : Parser F64 [NotAFloat]
 float = |str|
-    parser = integer |> both(maybe(string(".") |> rhs(integer))) |> map(|(l, maybe_r)|
-        when maybe_r is
-            None -> Ok(Num.to_f64(l))
-            Some(r) -> Ok(int_pair_to_float(l, r))
-    )
+    parser =
+        integer
+        |> both(maybe(string(".") |> rhs(integer)))
+        |> map(|(l, maybe_r)| Maybe.map(maybe_r, |r| Ok(int_pair_to_float(l, r)), Ok(Num.to_f64(l))))
     parser(str) |> Result.map_err(|_| NotAFloat)
 
 expect
@@ -247,6 +245,7 @@ zip_5 : Parser a _, Parser b _, Parser c _, Parser d _, Parser e _ -> Parser (a,
 zip_5 = |parser_a, parser_b, parser_c, parser_d, parser_e|
     zip(parser_a, zip_4(parser_b, parser_c, parser_d, parser_e)) |> map(|(a, (b, c, d, e))| Ok((a, b, c, d, e)))
 
+## Combine 6 parsers into a single parser that returns a tuple of 6 values
 zip_6 : Parser a _, Parser b _, Parser c _, Parser d _, Parser e _, Parser f _ -> Parser (a, b, c, d, e, f) _
 zip_6 = |parser_a, parser_b, parser_c, parser_d, parser_e, parser_f|
     zip(parser_a, zip_5(parser_b, parser_c, parser_d, parser_e, parser_f)) |> map(|(a, (b, c, d, e, f))| Ok((a, b, c, d, e, f)))
@@ -277,7 +276,7 @@ expect
 
 expect
     parser = or_else(string("abc"), string("def"))
-    parser("def") == Ok(("def", ""))    
+    parser("def") == Ok(("def", ""))
 
 ## Try each parser in sequence until one succeeds
 one_of : List (Parser a err) -> Parser a [NoMatchFound]
@@ -304,9 +303,8 @@ expect
     parser = one_of([string("abc"), string("def")])
     parser("ghi") == Err(NoMatchFound)
 
-
 ## keep the result of the left parser
-keep_left : Parser a _, Parser b _ -> Parser a _
+keep_left : Parser l _, Parser r _ -> Parser l _
 keep_left = |parser_l, parser_r|
     zip(parser_l, parser_r) |> map(|(l, _r)| Ok(l))
 
@@ -315,7 +313,7 @@ expect
     parser("lr") == Ok(("l", ""))
 
 ## keep the result of the right parser
-keep_right : Parser a _, Parser b _ -> Parser b _
+keep_right : Parser l _, Parser r _ -> Parser r _
 keep_right = |parser_l, parser_r|
     zip(parser_l, parser_r) |> map(|(_l, r)| Ok(r))
 
@@ -338,7 +336,7 @@ rhs : Parser l _, Parser r _ -> Parser r _
 rhs = |parser_l, parser_r| keep_right(parser_l, parser_r)
 
 ## keep the result of both parsers
-both : Parser a _, Parser b _ -> Parser (a, b) _
+both : Parser l _, Parser r _ -> Parser (l, r) _
 both = |parser_l, parser_r| zip(parser_l, parser_r)
 
 ## Finalization ---------------------------------------------------------------
@@ -367,6 +365,6 @@ expect
     parser = string("Hello")
     parser("Hello, world!") |> finalize_lazy == Ok("Hello")
 
-expect 
+expect
     parser = string("world!")
     parser("Hello, world!") |> finalize_lazy == Err(StringNotFound)

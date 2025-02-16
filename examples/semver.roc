@@ -5,6 +5,7 @@ app [main!] {
 
 import cli.Stdout
 import parse.Parse exposing [char, filter, one_or_more, both, or_else, map, zip_3, rhs, zero_or_more, maybe, finalize_lazy]
+import parse.Maybe
 
 Semver : { major : U64, minor : U64, patch : U64, pre_release : List Str, build : List Str }
 
@@ -50,12 +51,6 @@ print_semver! = |semver|
         [] -> "No build" |> Stdout.line!()
         bs -> "Build: ${Str.join_with(bs, ".")}" |> Stdout.line!()
 
-map_maybe : [Some a, None], (a -> b), b -> b
-map_maybe = |m, f, g|
-    when m is
-        Some(v) -> f(v)
-        None -> g
-
 parse_semver : Str -> Result Semver [InvalidSemver]
 parse_semver = |str|
     parser = map(
@@ -66,8 +61,8 @@ parse_semver = |str|
                     major: core.0,
                     minor: core.1,
                     patch: core.2,
-                    pre_release: map_maybe(maybe_pre_release, |ids| List.map(ids, Str.from_utf8_lossy), []),
-                    build: map_maybe(maybe_build, |ids| List.map(ids, Str.from_utf8_lossy), []),
+                    pre_release: Maybe.map(maybe_pre_release, |ids| List.map(ids, Str.from_utf8_lossy), []),
+                    build: Maybe.map(maybe_build, |ids| List.map(ids, Str.from_utf8_lossy), []),
                 },
             ),
     )
