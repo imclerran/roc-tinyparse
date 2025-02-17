@@ -36,17 +36,9 @@ expect
 ```roc
 major = integer |> map(|n| Ok(Major(n)))
 
-minor = maybe(dot |> rhs(integer)) |> map(|maybe_n|
-        when maybe_n is
-            Some(n) -> Ok(Minor(n))
-            None -> Ok(NoMinor)
-    )
+minor = maybe(dot |> rhs(integer)) |> map(|maybe_n| Maybe.map(maybe_n, Minor, NoMinor))
 
-patch = maybe(dot |> rhs(integer)) |> map(|maybe_n|
-        when maybe_n is
-            Some(n) -> Ok(Patch(n))
-            None -> Ok(NoPatch)
-    )
+patch = maybe(dot |> rhs(integer)) |> map(|maybe_n| Maybe.map(maybe_n, Patch, NoPatch))
 
 semver = rhs(maybe(string("v")), zip_3(major, minor, patch))
 
